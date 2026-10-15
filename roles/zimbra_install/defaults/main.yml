@@ -6,9 +6,10 @@ zimbra_setup_extra: {}
 # Clés zmsetup désignant le service de licence (serveurs de boîtes)
 zimbra_setup_lds: {}
 
-# Délai maximal sans nouvelle invite de l'installateur (secondes). Une invite
-# non prévue arrête l'installation au bout de ce délai, sans répondre au hasard.
-zimbra_install_prompt_timeout: 1800
+# Délai maximal sans nouvelle ligne affichée par l'installateur (secondes).
+# Une invite non prévue arrête l'installation au bout de ce délai, sans
+# répondre au hasard.
+zimbra_install_prompt_timeout: 600
 # Durée maximale d'une étape d'installation ou de configuration (secondes)
 zimbra_install_max_duration: 7200
 

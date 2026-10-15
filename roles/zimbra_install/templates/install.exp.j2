@@ -3,6 +3,10 @@
 # Chaque invite « Install zimbra-xxx » reçoit « y » si le paquet est dans la
 # liste de la machine, « n » sinon : la réponse ne dépend pas de l'ordre des
 # questions, qui change d'une version de Zimbra à l'autre.
+#
+# Le délai court entre deux lignes affichées par l'installateur : une invite
+# non prévue (aucune ligne nouvelle) arrête le script au bout de ce délai.
+{% set lds_remote = (zimbra_lds_hosts | length > 0) and (inventory_hostname not in zimbra_lds_hosts) %}
 set timeout {{ zimbra_install_prompt_timeout }}
 log_file -a {{ zimbra_install_log }}
 set wanted [list {% for p in _zimbra_packages_all %}"{{ p }}" {% endfor %}]
@@ -20,11 +24,27 @@ expect {
     if {[lsearch -exact $wanted $pkg] >= 0} { send "y\r" } else { send "n\r" }
     exp_continue
   }
+  -re {installed zimbra-license-daemon package on (a )?different node\?? \[[YyNn]\]} {
+    # Plateforme commune : le LDS est sur son propre nœud (msg-zimbra-license).
+    # Tout-en-un : il est installé sur la machine elle-même.
+    send "{{ 'y' if lds_remote else 'n' }}\r"; exp_continue
+  }
+{% if lds_remote %}
+  -re {(?i)license[- ]daemon[^\n]*(host|server|fqdn|address)[^\n]*[:\]] *$} {
+    send "{{ zimbra_lds_hosts[0] }}.{{ zimbra_hosts_domain }}\r"; exp_continue
+  }
+{% endif %}
   -re {modified\.?\s+Continue\? \[[YyNn]\]} {
     send "y\r"; exp_continue
   }
+  -re {[^\n]*\n} {
+    exp_continue
+  }
   timeout {
-    send_user "\n*** Invite non prévue ou blocage : voir {{ zimbra_install_log }} ***\n"
+    # Texte reçu mais non reconnu : c'est l'invite qui bloque.
+    set last ""
+    expect -timeout 1 -re {.+} { set last $expect_out(0,string) }
+    send_user "\n*** Invite non prévue, sans réponse automatique : ***\n$last\n*** voir {{ zimbra_install_log }} ***\n"
     exit 2
   }
   eof
