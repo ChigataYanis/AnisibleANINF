@@ -20,6 +20,10 @@ zimbra_os_packages:
   - perl
   - expect
   - rsyslog
+  # setfacl : nécessaire à Ansible pour les tâches lancées en tant que zimbra
+  # en mode asynchrone (redémarrages, zmcontrol). Sans lui : « chmod: invalid
+  # mode: A+user:zimbra:rx:allow ».
+  - acl
 
 # Serveurs de courrier du système qui occuperaient le port 25
 zimbra_conflicting_packages:
