@@ -21,16 +21,31 @@
   changed_when: false
   failed_when: false
 
-# Mot de passe passé par l'environnement, jamais en clair dans la commande.
+# Mot de passe passé par l'environnement, jamais en clair dans la commande :
+# la sortie de zmprov ne le contient pas et peut donc être affichée.
+# -l : écriture directe dans l'annuaire, sans dépendre du service mailboxd.
+# Ne pas lancer cette étape avec -vvv : ce niveau de détail affiche
+# l'environnement transmis, donc le mot de passe.
 - name: Création du compte administrateur {{ zimbra_admin_account }}
   ansible.builtin.shell: >-
-    su - zimbra -c '/opt/zimbra/bin/zmprov ca {{ zimbra_admin_account }} "$ZM_ADMIN_PW"
-    zimbraIsAdminAccount TRUE' -w ZM_ADMIN_PW
+    su -w ZM_ADMIN_PW - zimbra -c '/opt/zimbra/bin/zmprov -l ca {{ zimbra_admin_account }}
+    "$ZM_ADMIN_PW" zimbraIsAdminAccount TRUE'
   environment:
     ZM_ADMIN_PW: "{{ zimbra_admin_password }}"
   when: _admin.rc != 0
-  no_log: true
-  changed_when: true
+  register: _admin_create
+  failed_when: false
+  changed_when: _admin_create.rc == 0
+
+- name: Erreur de création du compte administrateur
+  ansible.builtin.fail:
+    msg: |
+      zmprov a renvoyé {{ _admin_create.rc }} :
+      {{ _admin_create.stdout }}
+      {{ _admin_create.stderr }}
+  when:
+    - _admin_create is not skipped
+    - _admin_create.rc != 0
 
 - name: Le compte {{ zimbra_admin_account }} est administrateur
   ansible.builtin.command: su - zimbra -c "/opt/zimbra/bin/zmprov -l ga {{ zimbra_admin_account }} zimbraIsAdminAccount"
