@@ -11,7 +11,7 @@ aninf_machine_table_received: true   # tableau reçu le 15/10/2026
 # --- Connexion ----------------------------------------------------------------
 # Ansible tourne sur msg-imapsync (100.64.35.4), atteinte par Teleport ; les
 # serveurs sont joints en SSH direct dans le VLAN avec le compte aninf (sudo).
-ansible_host: "{{ zimbra_ip }}"
+ansible_host: "{{ zimbra_ip | default(inventory_hostname) }}"   # localhost n'a pas de zimbra_ip
 ansible_user: aninf
 # Clé privée du compte aninf, déposée sur msg-imapsync (droits 600).
 # Elle n'est JAMAIS copiée dans le projet ni versionnée.
