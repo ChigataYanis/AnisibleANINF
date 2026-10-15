@@ -17,8 +17,11 @@ AVUSER="{{ zimbra_admin_account }}"
 CREATEDOMAIN="{{ zimbra_default_domain }}"
 CREATEADMIN="{{ zimbra_admin_account }}"
 CREATEADMINPASS="{{ zimbra_admin_password }}"
-DOCREATEDOMAIN="{{ 'yes' if inventory_hostname == zimbra_first_ldap else 'no' }}"
-DOCREATEADMIN="{{ 'yes' if inventory_hostname == zimbra_first_ldap else 'no' }}"
+{# Domaine : dès le premier annuaire. Compte admin : il faut un stockage de
+   boîtes, donc le premier serveur de boîtes (sur un LDAP seul, zmsetup saute
+   la création sans erreur). Tout-en-un : les deux sur la même machine. #}
+DOCREATEDOMAIN="{{ 'yes' if inventory_hostname in [zimbra_first_ldap, zimbra_mailbox_hosts[0]] else 'no' }}"
+DOCREATEADMIN="{{ 'yes' if inventory_hostname == zimbra_mailbox_hosts[0] else 'no' }}"
 DOTRAINSA="no"
 SMTPHOST="{{ zimbra_smtp_hosts | join(' ') }}"
 SMTPSOURCE="{{ zimbra_admin_account }}"

@@ -1,6 +1,43 @@
 ---
 # Réglages globaux (annuaire) : à jouer sur un seul serveur de boîtes.
 
+# Filet de sécurité : domaine par défaut et compte administrateur. Créés à
+# l'installation du premier serveur de boîtes ; créés ici s'ils manquent
+# (plateforme installée avant ce correctif, ou étape sautée).
+- name: Domaine {{ zimbra_default_domain }} présent
+  ansible.builtin.command: su - zimbra -c "/opt/zimbra/bin/zmprov -l gd {{ zimbra_default_domain }} zimbraDomainName"
+  register: _domain
+  changed_when: false
+  failed_when: false
+
+- name: Création du domaine {{ zimbra_default_domain }}
+  ansible.builtin.command: su - zimbra -c "/opt/zimbra/bin/zmprov -l cd {{ zimbra_default_domain }}"
+  when: _domain.rc != 0
+  changed_when: true
+
+- name: Compte {{ zimbra_admin_account }} présent
+  ansible.builtin.command: su - zimbra -c "/opt/zimbra/bin/zmprov -l ga {{ zimbra_admin_account }} zimbraIsAdminAccount"
+  register: _admin
+  changed_when: false
+  failed_when: false
+
+# Mot de passe passé par l'environnement, jamais en clair dans la commande.
+- name: Création du compte administrateur {{ zimbra_admin_account }}
+  ansible.builtin.shell: >-
+    su - zimbra -c '/opt/zimbra/bin/zmprov ca {{ zimbra_admin_account }} "$ZM_ADMIN_PW"
+    zimbraIsAdminAccount TRUE' -w ZM_ADMIN_PW
+  environment:
+    ZM_ADMIN_PW: "{{ zimbra_admin_password }}"
+  when: _admin.rc != 0
+  no_log: true
+  changed_when: true
+
+- name: Le compte {{ zimbra_admin_account }} est administrateur
+  ansible.builtin.command: su - zimbra -c "/opt/zimbra/bin/zmprov -l ga {{ zimbra_admin_account }} zimbraIsAdminAccount"
+  register: _admin_after
+  changed_when: false
+  failed_when: "'zimbraIsAdminAccount: TRUE' not in _admin_after.stdout"
+
 - name: FortiMail renseignés
   ansible.builtin.debug:
     msg: >-
