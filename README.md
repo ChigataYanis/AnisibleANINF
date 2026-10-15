@@ -183,3 +183,5 @@ pour être figés sans essai. Ils sont isolés dans des variables :
 | Secrets | Mots de passe en clair dans `defaults/main.yml` | `ansible-vault` |
 | Inclusions | `include:` (retiré d'ansible-core 2.16) | `import_tasks` / `include_role` |
 | zmtrainsa | `zmtrainsa_cleanup_host=TRUE` | Désactivé, comme l'exige la fiche (§6.4) |
+# AnisibleANINF
+# AnisibleANINF
