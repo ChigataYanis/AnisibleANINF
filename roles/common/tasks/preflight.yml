@@ -1,0 +1,87 @@
+---
+# L'ANINF livre les VM prêtes (§3.4) : on CONTRÔLE ses prérequis, on ne les
+# modifie pas. Les agents de l'ANINF ne sont jamais touchés.
+
+- name: Tableau des machines reçu
+  ansible.builtin.assert:
+    that: aninf_machine_table_received | bool
+    fail_msg: >-
+      Renseigner hosts.yml avec le tableau des machines de l'ANINF, puis passer
+      aninf_machine_table_received à true.
+  run_once: true
+
+- name: Ubuntu 24.04
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Ubuntu'
+      - ansible_distribution_version == '24.04'
+    fail_msg: "{{ ansible_distribution }} {{ ansible_distribution_version }} : Ubuntu 24.04 attendu."
+
+- name: L'adresse déclarée est portée par la machine
+  ansible.builtin.assert:
+    that: zimbra_ip in ansible_all_ipv4_addresses
+    fail_msg: "{{ zimbra_ip }} absente de {{ ansible_all_ipv4_addresses }}"
+
+- name: Volume /opt/zimbra monté en XFS
+  ansible.builtin.assert:
+    that:
+      - _opt | length == 1
+      - _opt[0].fstype == 'xfs'
+      - (_opt[0].size_available / 1024 / 1024 / 1024) >= zimbra_opt_min_free_gb
+    fail_msg: "/opt/zimbra doit être un volume XFS monté par l'ANINF avec au moins {{ zimbra_opt_min_free_gb }} Go libres."
+  vars:
+    _opt: "{{ ansible_mounts | selectattr('mount', 'equalto', '/opt/zimbra') | list }}"
+
+- name: État d'AppArmor
+  ansible.builtin.command: cat /sys/module/apparmor/parameters/enabled
+  register: _apparmor
+  changed_when: false
+  failed_when: false
+
+- name: État du service AppArmor
+  ansible.builtin.command: systemctl is-active apparmor
+  register: _apparmor_svc
+  changed_when: false
+  failed_when: false
+
+- name: AppArmor désactivé
+  ansible.builtin.assert:
+    that: _apparmor.stdout != 'Y' or _apparmor_svc.stdout != 'active'
+    fail_msg: "AppArmor est actif : prérequis à faire corriger par l'ANINF."
+
+- name: État du pare-feu local
+  ansible.builtin.shell: |
+    if command -v ufw >/dev/null; then echo "ufw $(ufw status | head -1)"; fi
+    for s in nftables firewalld; do echo "$s=$(systemctl is-active $s 2>/dev/null)"; done
+  args:
+    executable: /bin/bash
+  register: _fw
+  changed_when: false
+
+- name: Aucun pare-feu local
+  ansible.builtin.assert:
+    that:
+      - "'Status: active' not in _fw.stdout"
+      - "'nftables=active' not in _fw.stdout"
+      - "'firewalld=active' not in _fw.stdout"
+    fail_msg: "Pare-feu local détecté ({{ _fw.stdout_lines }}) : prérequis à faire corriger par l'ANINF."
+
+- name: Utilitaire nc présent
+  ansible.builtin.command: sh -c 'command -v nc'
+  changed_when: false
+
+- name: Horloge synchronisée
+  ansible.builtin.command: timedatectl show -p NTPSynchronized --value
+  register: _ntp
+  changed_when: false
+  failed_when: _ntp.stdout != 'yes'
+
+- name: Zimbra déjà installé ?
+  ansible.builtin.stat:
+    path: /opt/zimbra/bin/zmcontrol
+  register: _zmcontrol
+
+- name: Signaler une installation existante
+  ansible.builtin.debug:
+    msg: "Zimbra est déjà présent sur {{ inventory_hostname }} : les étapes d'installation seront sautées."
+  when: _zmcontrol.stat.exists

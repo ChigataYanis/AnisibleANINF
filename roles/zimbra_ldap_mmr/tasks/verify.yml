@@ -1,0 +1,23 @@
+---
+# Chaque annuaire doit avoir un accord de réplication vers chacun des deux
+# autres. Un annuaire installé en « mmr » ne connaît d'abord que le premier
+# maître : l'accord entre le 2e et le 3e est à contrôler ici.
+- name: Accords de réplication
+  ansible.builtin.command: /opt/zimbra/libexec/zmldapmmrtool -q
+  become_user: zimbra
+  register: _agreements
+  changed_when: false
+
+- name: Accords de {{ inventory_hostname }}
+  ansible.builtin.debug:
+    var: _agreements.stdout_lines
+
+- name: Réplication vers les deux autres annuaires
+  ansible.builtin.assert:
+    that: (item ~ '.' ~ zimbra_hosts_domain) in _agreements.stdout
+    fail_msg: >-
+      {{ inventory_hostname }} n'a pas d'accord de réplication vers {{ item }}.
+      L'ajouter avec zmldapmmrtool (guide d'administration Zimbra 10,
+      « Multi-Master Replication »), puis relancer avec --tags mmr.
+  loop: "{{ zimbra_ldap_hosts | reject('equalto', inventory_hostname) | list }}"
+  ignore_errors: "{{ not zimbra_ldap_mmr_strict | bool }}"

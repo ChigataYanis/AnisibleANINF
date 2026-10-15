@@ -1,0 +1,7 @@
+ansible.log
+*.retry
+files/*.tgz
+files/certs/*
+!files/certs/.gitkeep
+# Le coffre chiffré peut être versionné ; jamais un coffre en clair.
+inventories/*/group_vars/all/vault.yml.clair

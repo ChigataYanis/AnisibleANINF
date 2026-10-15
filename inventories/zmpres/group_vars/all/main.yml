@@ -1,0 +1,115 @@
+---
+# =============================================================================
+# Instance autonome de la Présidence — msg-zmpres (tout-en-un)
+# Son propre annuaire, ses administrateurs, sa licence (Q12), son certificat.
+# =============================================================================
+
+aninf_machine_table_received: true   # tableau reçu le 15/10/2026
+
+# --- Connexion ----------------------------------------------------------------
+# Ansible tourne sur msg-imapsync (100.64.35.4), atteinte par Teleport ; les
+# serveurs sont joints en SSH direct dans le VLAN avec le compte aninf (sudo).
+ansible_host: "{{ zimbra_ip }}"
+ansible_user: aninf
+
+zimbra_topology: single
+
+# --- Version et archive (Q1) : la même que la plateforme commune -------------
+zimbra_version: "10.1.21"
+zimbra_tarball: "zcs-NETWORK-10.1.21_GA_XXXX.UBUNTU24_64.YYYYMMDD.tgz"
+zimbra_tarball_local_dir: "{{ inventory_dir }}/../../files"
+zimbra_use_package_repo: true
+zimbra_stage_dir: /var/tmp/zcs
+zimbra_installer_dir: "{{ zimbra_stage_dir }}/{{ zimbra_tarball | regex_replace('\\.tgz$', '') }}"
+
+# --- Noms (Q2) ---------------------------------------------------------------
+zimbra_hosts_domain: "aninf.ga"            # tableau des machines du 15/10/2026
+zimbra_fqdn: "{{ inventory_hostname }}.{{ zimbra_hosts_domain }}"
+zimbra_name_resolution: hosts
+zimbra_extra_hosts: []
+
+# --- Domaine et administration -----------------------------------------------
+zimbra_default_domain: "presidence.ga"
+zimbra_admin_account: "admin@{{ zimbra_default_domain }}"
+zimbra_admin_password: "{{ vault_zimbra_admin_password }}"
+zimbra_ldap_password: "{{ vault_zimbra_ldap_password }}"
+zimbra_timezone: "Africa/Libreville"
+zimbra_notification_email: "admin@{{ zimbra_default_domain }}"
+
+# --- Réseau : mêmes FortiMail, domaine protégé presidence.ga -----------------
+zimbra_vlan_cidr: "100.64.35.0/24"
+fortimail_ips: []
+fortimail_relay_host: ""
+fortimail_smtp_hostnames: []
+imapsync_ips: [100.64.35.4]                # msg-imapsync
+
+zimbra_onlyoffice: false
+zimbra_logger_host: msg-zmpres
+zimbra_proxy_mail_mode: "redirect"
+
+# --- Topologie : tous les rôles sur la même machine --------------------------
+zimbra_ldap_hosts: [msg-zmpres]
+zimbra_lds_hosts: [msg-zmpres]
+zimbra_mta_hosts: [msg-zmpres]
+zimbra_proxy_hosts: [msg-zmpres]
+zimbra_mailbox_hosts: [msg-zmpres]
+zimbra_all_hosts: [msg-zmpres]
+zimbra_first_ldap: msg-zmpres
+
+zimbra_mta_mynetworks: >-
+  127.0.0.0/8 [::1]/128 {{ zimbra_vlan_cidr }}
+  {{ fortimail_ips | map('regex_replace', '$', '/32') | join(' ') }}
+zimbra_smtp_hosts: >-
+  {{ fortimail_smtp_hostnames if fortimail_smtp_hostnames | length > 0
+     else [zimbra_fqdn] }}
+zimbra_http_safe_ips: "{{ fortimail_ips + imapsync_ips }}"
+
+# --- Paquets et configuration du tout-en-un ----------------------------------
+# zimbra-license-daemon : NOM À VALIDER sur l'installateur 10.1.21
+zimbra_packages:
+  - zimbra-ldap
+  - zimbra-mta
+  - zimbra-store
+  - zimbra-apache
+  - zimbra-spell
+  - zimbra-memcached
+  - zimbra-proxy
+  - zimbra-license-daemon
+
+zimbra_setup_extra:
+  LDAPREPLICATIONTYPE: "master"
+  LDAPSERVERID: "1"
+  RUNAV: "no"
+  RUNSA: "no"
+  RUNDKIM: "no"
+  RUNARCHIVING: "no"
+  RUNCBPOLICYD: "no"
+  MODE: "https"
+  PROXYMODE: "https"
+  MAILPROXY: "TRUE"
+  HTTPPROXY: "TRUE"
+  zimbraMailProxy: "TRUE"
+  zimbraWebProxy: "TRUE"
+  zimbraReverseProxyLookupTarget: "TRUE"
+  HTTPPORT: "8080"
+  HTTPSPORT: "8443"
+  HTTPPROXYPORT: "80"
+  HTTPSPROXYPORT: "443"
+  IMAPPORT: "7143"
+  IMAPSSLPORT: "7993"
+  IMAPPROXYPORT: "143"
+  IMAPSSLPROXYPORT: "993"
+  POPPORT: "7110"
+  POPSSLPORT: "7995"
+  POPPROXYPORT: "110"
+  POPSSLPROXYPORT: "995"
+  SERVICEWEBAPP: "yes"
+  UIWEBAPPS: "yes"
+  USESPELL: "yes"
+  SPELLURL: "http://{{ zimbra_fqdn }}:7780/aspell.php"
+  MAILBOXDMEMORY: "{{ (ansible_memtotal_mb * 0.25) | int }}"
+  SYSTEMMEMORY: "{{ (ansible_memtotal_mb / 1024) | round(1) }}"
+  MYSQLMEMORYPERCENT: "30"
+
+# Clé(s) zmsetup du service de licence : voir la plateforme commune
+zimbra_setup_lds: {}

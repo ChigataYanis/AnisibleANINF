@@ -1,0 +1,62 @@
+---
+# Réglages globaux (annuaire) : à jouer sur un seul serveur de boîtes.
+
+- name: FortiMail renseignés
+  ansible.builtin.debug:
+    msg: >-
+      ATTENTION : fortimail_relay_host / fortimail_ips / fortimail_smtp_hostnames
+      ne sont pas renseignés. Le relais et l'envoi du webmail par les FortiMail
+      ne sont pas configurés ; à rejouer avec --tags postconfig une fois fournis.
+  when: fortimail_relay_host | length == 0 or fortimail_ips | length == 0
+        or fortimail_smtp_hostnames | length == 0
+
+- name: Script zmprov
+  ansible.builtin.template:
+    src: postconfig.zmprov.j2
+    dest: "{{ zimbra_state_dir | default('/var/lib/zimbra-ansible') }}/postconfig.zmprov"
+    owner: zimbra
+    mode: "0600"
+
+- name: Répertoire des témoins lisible par zimbra
+  ansible.builtin.file:
+    path: "{{ zimbra_state_dir | default('/var/lib/zimbra-ansible') }}"
+    mode: "0711"
+
+- name: Application des réglages
+  ansible.builtin.command: /opt/zimbra/bin/zmprov -f {{ zimbra_state_dir | default('/var/lib/zimbra-ansible') }}/postconfig.zmprov
+  become_user: zimbra
+  changed_when: true
+
+- name: Antivirus, antispam et DKIM retirés des MTA
+  ansible.builtin.shell: |
+    set -euo pipefail
+    for h in {{ zimbra_mta_hosts | map('regex_replace', '$', '.' ~ zimbra_hosts_domain) | join(' ') }}; do
+      enabled=$(/opt/zimbra/bin/zmprov gs "$h" zimbraServiceEnabled)
+      for s in {{ zimbra_mta_disabled_services | join(' ') }}; do
+        if grep -qx "zimbraServiceEnabled: $s" <<<"$enabled"; then
+          /opt/zimbra/bin/zmprov ms "$h" -zimbraServiceEnabled "$s"
+          echo "CHANGED $h $s"
+        fi
+      done
+    done
+  args:
+    executable: /bin/bash
+  become_user: zimbra
+  register: _svc
+  changed_when: "'CHANGED' in _svc.stdout"
+
+- name: Listes noires DNS (DNSBL) retirées des restrictions MTA
+  ansible.builtin.shell: |
+    set -euo pipefail
+    /opt/zimbra/bin/zmprov gacf zimbraMtaRestriction \
+      | sed -n 's/^zimbraMtaRestriction: //p' \
+      | { grep -E '^reject_(rbl_client|rhsbl_)' || true; } \
+      | while read -r r; do
+          /opt/zimbra/bin/zmprov mcf -zimbraMtaRestriction "$r"
+          echo "CHANGED $r"
+        done
+  args:
+    executable: /bin/bash
+  become_user: zimbra
+  register: _rbl
+  changed_when: "'CHANGED' in _rbl.stdout"

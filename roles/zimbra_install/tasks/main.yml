@@ -1,0 +1,121 @@
+---
+# Installation d'un nœud Zimbra en deux temps, comme le guide multi-serveurs :
+#   1. install.sh -s   : paquets seuls (invites traitées par expect)
+#   2. zmsetup.pl -c   : configuration depuis un fichier de réponses
+# Chaque étape laisse un témoin : relancer le playbook ne réinstalle rien.
+
+- name: Paquets de cette machine
+  ansible.builtin.set_fact:
+    _zimbra_packages_all: >-
+      {{ (zimbra_packages
+          + (['zimbra-logger'] if inventory_hostname == zimbra_logger_host else [])
+          + (['zimbra-onlyoffice'] if zimbra_onlyoffice | bool and inventory_hostname in zimbra_mailbox_hosts else []))
+         | unique }}
+
+- name: Répertoire des témoins
+  ansible.builtin.file:
+    path: "{{ zimbra_state_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: Témoins d'avancement
+  ansible.builtin.stat:
+    path: "{{ zimbra_state_dir }}/{{ item }}"
+  loop: [packages-installed, configured]
+  register: _markers
+
+- name: Raccourcis
+  ansible.builtin.set_fact:
+    _pkg_done: "{{ _markers.results[0].stat.exists }}"
+    _cfg_done: "{{ _markers.results[1].stat.exists }}"
+
+- name: Le premier annuaire répond
+  ansible.builtin.wait_for:
+    host: "{{ zimbra_first_ldap }}.{{ zimbra_hosts_domain }}"
+    port: 389
+    timeout: 30
+  when:
+    - inventory_hostname != zimbra_first_ldap
+    - not _cfg_done
+
+- name: Le service de licence répond (port 8081)
+  ansible.builtin.wait_for:
+    host: "{{ item }}.{{ zimbra_hosts_domain }}"
+    port: 8081
+    timeout: 30
+  loop: "{{ zimbra_lds_hosts }}"
+  when:
+    - inventory_hostname in zimbra_mailbox_hosts
+    - inventory_hostname not in zimbra_lds_hosts
+    - not _cfg_done
+
+- name: Installation des paquets
+  when: not _pkg_done
+  block:
+    - name: Script de réponses de l'installateur
+      ansible.builtin.template:
+        src: install.exp.j2
+        dest: "{{ zimbra_state_dir }}/install.exp"
+        mode: "0700"
+
+    - name: Paquets à installer
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} : zimbra-core {{ _zimbra_packages_all | join(' ') }}"
+
+    - name: install.sh -s (journal {{ zimbra_install_log }})
+      ansible.builtin.command: expect -f {{ zimbra_state_dir }}/install.exp
+      args:
+        chdir: "{{ zimbra_installer_dir }}"
+      async: "{{ zimbra_install_max_duration }}"
+      poll: 30
+      changed_when: true
+
+    - name: Témoin des paquets
+      ansible.builtin.copy:
+        dest: "{{ zimbra_state_dir }}/packages-installed"
+        content: "{{ _zimbra_packages_all | join(' ') }}\n"
+        mode: "0600"
+
+- name: Configuration (zmsetup.pl)
+  when: not _cfg_done
+  block:
+    - name: Fichier de configuration
+      ansible.builtin.template:
+        src: zmsetup.conf.j2
+        dest: "{{ zimbra_state_dir }}/zmsetup.conf"
+        mode: "0600"
+      no_log: true
+
+    - name: zmsetup.pl -c
+      ansible.builtin.command: /opt/zimbra/libexec/zmsetup.pl -c {{ zimbra_state_dir }}/zmsetup.conf
+      async: "{{ zimbra_install_max_duration }}"
+      poll: 30
+      changed_when: true
+
+    - name: Témoin de configuration
+      ansible.builtin.copy:
+        dest: "{{ zimbra_state_dir }}/configured"
+        content: "{{ zimbra_version }}\n"
+        mode: "0600"
+  always:
+    # Le fichier contient les mots de passe : il ne reste jamais sur la machine.
+    - name: Supprimer le fichier de configuration
+      ansible.builtin.file:
+        path: "{{ zimbra_state_dir }}/zmsetup.conf"
+        state: absent
+
+- name: Rétablir les droits de l'utilisateur zimbra (§3.3)
+  ansible.builtin.command: /opt/zimbra/libexec/zmfixperms --extended
+  when: not _cfg_done
+  changed_when: true
+
+- name: État des services
+  ansible.builtin.command: /opt/zimbra/bin/zmcontrol status
+  become_user: zimbra
+  register: _status
+  changed_when: false
+  failed_when: false
+
+- name: Services de {{ inventory_hostname }}
+  ansible.builtin.debug:
+    var: _status.stdout_lines

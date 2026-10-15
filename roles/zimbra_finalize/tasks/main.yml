@@ -1,0 +1,39 @@
+---
+# Après l'installation de toutes les machines (§6.2, dernière étape).
+
+- name: Échange des clés SSH entre serveurs Zimbra
+  ansible.builtin.command: /opt/zimbra/bin/zmupdateauthkeys
+  become_user: zimbra
+  changed_when: true
+
+# L'ordre des annuaires varie d'un serveur à l'autre pour répartir les
+# lectures (§6.3). Un annuaire se cite lui-même en premier.
+- name: Ordre des annuaires de ce serveur
+  ansible.builtin.set_fact:
+    _ldap_order: "{{ zimbra_ldap_hosts[_shift | int:] + zimbra_ldap_hosts[:_shift | int] }}"
+  vars:
+    _shift: >-
+      {{ zimbra_ldap_hosts.index(inventory_hostname) if inventory_hostname in zimbra_ldap_hosts
+         else zimbra_all_hosts.index(inventory_hostname) % (zimbra_ldap_hosts | length) }}
+  when: zimbra_topology == 'multi'
+
+- name: ldap_url et ldap_master_url
+  ansible.builtin.command: >-
+    /opt/zimbra/bin/zmlocalconfig -e
+    ldap_url="{{ _urls }}" ldap_master_url="{{ _urls }}"
+  become_user: zimbra
+  vars:
+    _urls: "{{ _ldap_order | map('regex_replace', '^', 'ldap://') | map('regex_replace', '$', '.' ~ zimbra_hosts_domain ~ ':389') | join(' ') }}"
+  when: zimbra_topology == 'multi'
+  changed_when: true
+
+- name: Apprentissage antispam désactivé (zmtrainsa)
+  ansible.builtin.command: /opt/zimbra/bin/zmlocalconfig -e zmtrainsa_cleanup_host=FALSE
+  become_user: zimbra
+  when: inventory_hostname in zimbra_mailbox_hosts or inventory_hostname in zimbra_mta_hosts
+  changed_when: true
+
+- name: Journalisation vers le journal central
+  ansible.builtin.command: /opt/zimbra/libexec/zmsyslogsetup
+  when: zimbra_logger_host | length > 0
+  changed_when: true

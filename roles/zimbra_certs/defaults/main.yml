@@ -1,0 +1,18 @@
+---
+# Certificats commerciaux fournis par l'ANINF (§4.4, Q15), déposés dans
+# files/certs/ du projet. Clé privée sans phrase secrète, chaîne complète.
+zimbra_certs_dir: "{{ inventory_dir }}/../../files/certs"
+
+# Certificat principal de la plateforme
+zimbra_main_cert:
+  cert: commercial.crt
+  chain: commercial_ca.crt
+  key: commercial.key
+
+# Certificats par domaine publié, servis par les proxys (SNI) :
+#   - domain: gouv.ga
+#     virtual_hostnames: [webmail.gouv.ga]
+#     virtual_ips: []          # zimbraVirtualIPAddress, si retenu
+#     cert: gouv.ga.crt        # certificat suivi de la chaîne
+#     key: gouv.ga.key
+zimbra_domain_certs: []

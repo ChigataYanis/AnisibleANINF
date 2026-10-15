@@ -1,0 +1,3 @@
+---
+- name: Contrôle de la réplication
+  ansible.builtin.import_tasks: verify.yml

@@ -1,0 +1,33 @@
+#!/usr/bin/expect -f
+# Installation des paquets Zimbra (install.sh -s) — généré par Ansible.
+# Chaque invite « Install zimbra-xxx » reçoit « y » si le paquet est dans la
+# liste de la machine, « n » sinon : la réponse ne dépend pas de l'ordre des
+# questions, qui change d'une version de Zimbra à l'autre.
+set timeout {{ zimbra_install_prompt_timeout }}
+log_file -a {{ zimbra_install_log }}
+set wanted [list {% for p in _zimbra_packages_all %}"{{ p }}" {% endfor %}]
+
+spawn ./install.sh -s
+expect {
+  -re {license agreement\? \[[YyNn]\]} {
+    send "y\r"; exp_continue
+  }
+  -re {package repository \[[YyNn]\]} {
+    send "{{ 'y' if zimbra_use_package_repo else 'n' }}\r"; exp_continue
+  }
+  -re {Install (zimbra-[A-Za-z0-9_.-]+) \[[YyNn]\]} {
+    set pkg $expect_out(1,string)
+    if {[lsearch -exact $wanted $pkg] >= 0} { send "y\r" } else { send "n\r" }
+    exp_continue
+  }
+  -re {modified\.?\s+Continue\? \[[YyNn]\]} {
+    send "y\r"; exp_continue
+  }
+  timeout {
+    send_user "\n*** Invite non prévue ou blocage : voir {{ zimbra_install_log }} ***\n"
+    exit 2
+  }
+  eof
+}
+lassign [wait] pid spawnid os_error status
+exit $status

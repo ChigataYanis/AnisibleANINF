@@ -1,0 +1,43 @@
+---
+# =============================================================================
+# Instance autonome de la Présidence — msg-zmpres, tout-en-un (fiche §5)
+# Aucun lien avec la plateforme commune : inventaire, coffre et licence propres.
+#
+#   ansible-playbook -i inventories/zmpres/hosts.yml playbooks/zmpres.yml --ask-vault-pass
+# =============================================================================
+
+- name: Instance autonome de la Présidence
+  hosts: zimbra_single
+  roles:
+    - role: common
+      tags: [common]
+    - role: zimbra_install
+      tags: [install]
+    - role: zimbra_lds
+      tags: [lds]
+    - role: zimbra_finalize
+      tags: [finalize]
+    - role: zimbra_postconfig
+      tags: [postconfig]
+  tasks:
+    - name: Compression des volumes de messages (§6.6)
+      ansible.builtin.include_role:
+        name: zimbra_postconfig
+        tasks_from: compression
+      tags: [postconfig, compression]
+
+    - name: Certificats (§4.4)
+      ansible.builtin.include_role:
+        name: zimbra_certs
+      tags: [certs]
+
+    - name: Personnalisation du webmail (images CNPS provisoires)
+      ansible.builtin.include_role:
+        name: zimbra_branding
+      tags: [branding]
+
+    - name: Redémarrage
+      ansible.builtin.include_role:
+        name: zimbra_finalize
+        tasks_from: restart
+      tags: [restart]

@@ -1,0 +1,8 @@
+---
+# Annuaires : réplication multi-maîtres à trois (§6.3).
+zimbra_packages:
+  - zimbra-ldap
+
+zimbra_setup_extra:
+  LDAPREPLICATIONTYPE: "{{ 'master' if inventory_hostname == zimbra_first_ldap else 'mmr' }}"
+  LDAPSERVERID: "{{ ldap_server_id }}"

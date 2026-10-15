@@ -1,0 +1,26 @@
+---
+- name: Archive Zimbra présente sur le poste de contrôle
+  ansible.builtin.stat:
+    path: "{{ zimbra_tarball_local_dir }}/{{ zimbra_tarball }}"
+  register: _tarball
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Archive Zimbra disponible
+  ansible.builtin.assert:
+    that: _tarball.stat.exists
+    fail_msg: "Déposer {{ zimbra_tarball }} dans {{ zimbra_tarball_local_dir }} (portail client Zimbra, Q1)."
+  run_once: true
+
+- name: Répertoire de l'installateur
+  ansible.builtin.file:
+    path: "{{ zimbra_stage_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: Décompression de l'installateur
+  ansible.builtin.unarchive:
+    src: "{{ zimbra_tarball_local_dir }}/{{ zimbra_tarball }}"
+    dest: "{{ zimbra_stage_dir }}"
+    creates: "{{ zimbra_installer_dir }}/install.sh"

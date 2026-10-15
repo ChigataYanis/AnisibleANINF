@@ -1,0 +1,30 @@
+---
+# Serveurs de boîtes. Le journal central (zimbra-logger) est ajouté
+# automatiquement sur zimbra_logger_host. OnlyOffice : voir zimbra_onlyoffice.
+zimbra_packages:
+  - zimbra-store
+  - zimbra-apache
+  - zimbra-spell
+
+zimbra_setup_extra:
+  MODE: "https"
+  SERVICEWEBAPP: "yes"
+  UIWEBAPPS: "yes"
+  zimbraReverseProxyLookupTarget: "TRUE"
+  # Ports des services derrière les proxys
+  HTTPPORT: "8080"
+  HTTPSPORT: "8443"
+  IMAPPORT: "7143"
+  IMAPSSLPORT: "7993"
+  POPPORT: "7110"
+  POPSSLPORT: "7995"
+  USESPELL: "yes"
+  SPELLURL: "http://{{ zimbra_fqdn }}:7780/aspell.php"
+  MAILBOXDMEMORY: "{{ (ansible_memtotal_mb * 0.25) | int }}"
+  SYSTEMMEMORY: "{{ (ansible_memtotal_mb / 1024) | round(1) }}"
+  MYSQLMEMORYPERCENT: "30"
+
+# Clé(s) zmsetup qui désignent le service de licence (LDS) au serveur de boîtes.
+# À RELEVER dans /opt/zimbra/config.* après une installation manuelle 10.1.21
+# sur maquette, puis à ajouter ici. Exemple de forme : { CLE: "msg-zimbra-license.{{ zimbra_hosts_domain }}" }
+zimbra_setup_lds: {}

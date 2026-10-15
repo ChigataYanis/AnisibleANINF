@@ -1,0 +1,18 @@
+---
+# Proxys : webmail, IMAP et memcached (§6.4). Pas de POP3 (Q4).
+zimbra_packages:
+  - zimbra-proxy
+  - zimbra-memcached
+
+zimbra_setup_extra:
+  MAILPROXY: "TRUE"
+  HTTPPROXY: "TRUE"
+  PROXYMODE: "https"
+  zimbraMailProxy: "TRUE"
+  zimbraWebProxy: "TRUE"
+  HTTPPROXYPORT: "80"
+  HTTPSPROXYPORT: "443"
+  IMAPPROXYPORT: "143"
+  IMAPSSLPROXYPORT: "993"
+  POPPROXYPORT: "110"
+  POPSSLPROXYPORT: "995"

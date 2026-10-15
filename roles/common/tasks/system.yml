@@ -1,0 +1,65 @@
+---
+- name: Nom d'hôte complet
+  ansible.builtin.hostname:
+    name: "{{ zimbra_fqdn }}"
+
+# Ubuntu associe le nom d'hôte à 127.0.1.1 : Zimbra le résoudrait en local.
+- name: Retirer l'entrée 127.0.1.1
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1\s'
+    state: absent
+
+- name: Fichier /etc/hosts commun (Q2 = hosts)
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ZIMBRA ANINF (Ansible)"
+    block: |
+      {% for h in zimbra_all_hosts %}
+      {{ hostvars[h].zimbra_ip }} {{ h }}.{{ zimbra_hosts_domain }} {{ h }}
+      {% endfor %}
+      {% for e in zimbra_extra_hosts %}
+      {{ e.ip }} {{ e.names | join(' ') }}
+      {% endfor %}
+  when: zimbra_name_resolution == 'hosts'
+
+- name: Présence de cloud-init
+  ansible.builtin.stat:
+    path: /etc/cloud/cloud.cfg.d
+  register: _cloudinit
+
+- name: Empêcher cloud-init de réécrire /etc/hosts
+  ansible.builtin.copy:
+    dest: /etc/cloud/cloud.cfg.d/99-zimbra-hosts.cfg
+    content: "manage_etc_hosts: false\n"
+    mode: "0644"
+  when: _cloudinit.stat.exists and zimbra_name_resolution == 'hosts'
+
+- name: Le nom complet se résout vers l'adresse du VLAN
+  ansible.builtin.command: getent hosts {{ zimbra_fqdn }}
+  register: _getent
+  changed_when: false
+  failed_when: _getent.stdout.split() | first | default('') != zimbra_ip
+
+- name: Fuseau horaire actuel
+  ansible.builtin.command: timedatectl show -p Timezone --value
+  register: _tz
+  changed_when: false
+
+- name: Fuseau horaire {{ zimbra_timezone }}
+  ansible.builtin.command: timedatectl set-timezone {{ zimbra_timezone }}
+  when: _tz.stdout != zimbra_timezone
+  changed_when: true
+
+- name: Dépendances de Zimbra
+  ansible.builtin.apt:
+    name: "{{ zimbra_os_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Retirer les serveurs de courrier du système
+  ansible.builtin.apt:
+    name: "{{ zimbra_conflicting_packages }}"
+    state: absent
+    purge: true

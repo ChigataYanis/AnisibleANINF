@@ -1,0 +1,12 @@
+---
+# MTA : livraison LMTP et relais vers les FortiMail. Un seul moteur de
+# filtrage, celui des FortiMail : ni antivirus, ni antispam, ni DKIM ici (§4.2).
+zimbra_packages:
+  - zimbra-mta
+
+zimbra_setup_extra:
+  RUNAV: "no"
+  RUNSA: "no"
+  RUNDKIM: "no"
+  RUNARCHIVING: "no"
+  RUNCBPOLICYD: "no"

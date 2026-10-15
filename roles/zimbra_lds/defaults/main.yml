@@ -1,0 +1,8 @@
+---
+# Activation de la licence sur le nœud LDS (Q12 : en ligne ou hors ligne).
+# La commande exacte de la 10.1.21 est À CONFIRMER par VEONE (guide
+# d'administration, « License Daemon Service »). Laisser vide tant qu'elle
+# n'est pas validée : l'activation se fait alors à la main.
+# La clé est lue dans le coffre : {{ vault_zimbra_license_key }}
+zimbra_license_activation_command: ""
+zimbra_lds_port: 8081

@@ -1,0 +1,3 @@
+---
+# Arrêter le déploiement si un annuaire ne réplique pas avec les deux autres
+zimbra_ldap_mmr_strict: true

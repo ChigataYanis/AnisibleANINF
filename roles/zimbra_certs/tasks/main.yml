@@ -1,0 +1,85 @@
+---
+# Certificat principal : déployé sur chaque serveur Zimbra (zmcertmgr).
+- name: Certificat principal fourni
+  ansible.builtin.stat:
+    path: "{{ zimbra_certs_dir }}/{{ zimbra_main_cert.cert }}"
+  register: _main_cert
+  delegate_to: localhost
+  become: false
+
+- name: Certificat principal
+  when: _main_cert.stat.exists
+  block:
+    - name: Répertoire de travail
+      ansible.builtin.file:
+        path: /var/tmp/zimbra-certs
+        state: directory
+        owner: zimbra
+        mode: "0700"
+
+    - name: Certificat et chaîne
+      ansible.builtin.copy:
+        src: "{{ zimbra_certs_dir }}/{{ item }}"
+        dest: "/var/tmp/zimbra-certs/{{ item }}"
+        owner: zimbra
+        mode: "0600"
+      loop:
+        - "{{ zimbra_main_cert.cert }}"
+        - "{{ zimbra_main_cert.chain }}"
+
+    - name: Clé privée
+      ansible.builtin.copy:
+        src: "{{ zimbra_certs_dir }}/{{ zimbra_main_cert.key }}"
+        dest: /opt/zimbra/ssl/zimbra/commercial/commercial.key
+        owner: zimbra
+        group: zimbra
+        mode: "0600"
+      no_log: true
+
+    - name: Vérification du certificat
+      ansible.builtin.command: >-
+        /opt/zimbra/bin/zmcertmgr verifycrt comm
+        /opt/zimbra/ssl/zimbra/commercial/commercial.key
+        /var/tmp/zimbra-certs/{{ zimbra_main_cert.cert }}
+        /var/tmp/zimbra-certs/{{ zimbra_main_cert.chain }}
+      become_user: zimbra
+      changed_when: false
+
+    - name: Déploiement du certificat
+      ansible.builtin.command: >-
+        /opt/zimbra/bin/zmcertmgr deploycrt comm
+        /var/tmp/zimbra-certs/{{ zimbra_main_cert.cert }}
+        /var/tmp/zimbra-certs/{{ zimbra_main_cert.chain }}
+      become_user: zimbra
+      changed_when: true
+
+- name: Certificat principal absent
+  ansible.builtin.debug:
+    msg: "Aucun certificat dans {{ zimbra_certs_dir }} : étape sautée (Q15)."
+  when: not _main_cert.stat.exists
+  run_once: true
+
+# Certificats par domaine : enregistrés une fois dans l'annuaire,
+# puis déployés sur chaque proxy.
+- name: Sélection du certificat par nom (SNI) sur les proxys
+  ansible.builtin.command: /opt/zimbra/bin/zmprov mcf zimbraReverseProxySNIEnabled TRUE
+  become_user: zimbra
+  when:
+    - zimbra_domain_certs | length > 0
+    - inventory_hostname == zimbra_mailbox_hosts[0]
+  changed_when: true
+
+- name: Noms virtuels et certificats des domaines
+  ansible.builtin.include_tasks: domain.yml
+  loop: "{{ zimbra_domain_certs }}"
+  loop_control:
+    loop_var: dom
+  when: inventory_hostname == zimbra_mailbox_hosts[0]
+
+- name: Déploiement des certificats de domaine sur les proxys
+  ansible.builtin.command: /opt/zimbra/libexec/zmdomaincertmgr deploycrts
+  become_user: zimbra
+  when:
+    - zimbra_domain_certs | length > 0
+    - inventory_hostname in zimbra_proxy_hosts
+  changed_when: true

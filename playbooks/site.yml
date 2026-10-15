@@ -1,0 +1,92 @@
+---
+# =============================================================================
+# Plateforme commune ANINF — Zimbra 10.1 sur Ubuntu 24.04
+# Ordre d'installation de la fiche ANINF §6.2 :
+#   LDAP 1 → LDAP 2 et 3 (multi-maîtres) → licence → MTA → proxys
+#   → serveurs de boîtes → clés SSH → réglages → redémarrage ordonné
+#
+#   ansible-playbook playbooks/site.yml --ask-vault-pass
+#   ansible-playbook playbooks/site.yml --ask-vault-pass --tags postconfig
+# =============================================================================
+
+- name: Socle et contrôles préalables
+  hosts: zimbra_commune
+  roles: [common]
+  tags: [common]
+
+- name: Annuaire — premier maître
+  hosts: zimbra_ldap[0]
+  roles: [zimbra_install]
+  tasks:
+    - name: Réplication multi-maîtres
+      ansible.builtin.include_role:
+        name: zimbra_ldap_mmr
+        tasks_from: enable
+  tags: [ldap]
+
+- name: Annuaires — deuxième et troisième maîtres
+  hosts: zimbra_ldap[1:]
+  serial: 1
+  roles: [zimbra_install]
+  tags: [ldap]
+
+- name: Annuaires — contrôle de la réplication
+  hosts: zimbra_ldap
+  roles: [zimbra_ldap_mmr]
+  tags: [ldap, mmr]
+
+- name: Service de licence (avant le premier serveur de boîtes)
+  hosts: zimbra_lds
+  roles: [zimbra_install, zimbra_lds]
+  tags: [lds]
+
+- name: MTA
+  hosts: zimbra_mta
+  serial: 1
+  roles: [zimbra_install]
+  tags: [mta]
+
+- name: Proxys
+  hosts: zimbra_proxy
+  serial: 1
+  roles: [zimbra_install]
+  tags: [proxy]
+
+- name: Serveurs de boîtes
+  hosts: zimbra_mailbox
+  serial: 1
+  roles: [zimbra_install]
+  tags: [mailbox]
+
+- name: Finalisation — clés SSH, ordre des annuaires, journaux
+  hosts: zimbra_commune
+  roles: [zimbra_finalize]
+  tags: [finalize]
+
+- name: Réglages de la plateforme (§6.4)
+  hosts: zimbra_mailbox[0]
+  roles: [zimbra_postconfig]
+  tags: [postconfig]
+
+- name: Compression des volumes de messages (§6.6)
+  hosts: zimbra_mailbox
+  tasks:
+    - name: Compression
+      ansible.builtin.include_role:
+        name: zimbra_postconfig
+        tasks_from: compression
+  tags: [postconfig, compression]
+
+- name: Certificats (§4.4)
+  hosts: zimbra_commune
+  roles: [zimbra_certs]
+  tags: [certs]
+
+- name: Personnalisation du webmail (images CNPS provisoires)
+  hosts: zimbra_mailbox
+  roles: [zimbra_branding]
+  tags: [branding]
+
+- name: Redémarrage ordonné
+  ansible.builtin.import_playbook: restart.yml
+  tags: [restart]

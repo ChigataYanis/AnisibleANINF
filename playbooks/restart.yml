@@ -1,0 +1,37 @@
+---
+# Redémarrage machine par machine, dans l'ordre d'installation : un rôle
+# redondé n'est jamais arrêté sur ses trois exemplaires à la fois.
+- name: Redémarrage — annuaires
+  hosts: zimbra_ldap
+  serial: 1
+  tasks:
+    - name: Redémarrage
+      ansible.builtin.include_role: { name: zimbra_finalize, tasks_from: restart }
+
+- name: Redémarrage — licence
+  hosts: zimbra_lds
+  serial: 1
+  tasks:
+    - name: Redémarrage
+      ansible.builtin.include_role: { name: zimbra_finalize, tasks_from: restart }
+
+- name: Redémarrage — MTA
+  hosts: zimbra_mta
+  serial: 1
+  tasks:
+    - name: Redémarrage
+      ansible.builtin.include_role: { name: zimbra_finalize, tasks_from: restart }
+
+- name: Redémarrage — proxys
+  hosts: zimbra_proxy
+  serial: 1
+  tasks:
+    - name: Redémarrage
+      ansible.builtin.include_role: { name: zimbra_finalize, tasks_from: restart }
+
+- name: Redémarrage — serveurs de boîtes
+  hosts: zimbra_mailbox
+  serial: 1
+  tasks:
+    - name: Redémarrage
+      ansible.builtin.include_role: { name: zimbra_finalize, tasks_from: restart }

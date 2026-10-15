@@ -1,0 +1,7 @@
+---
+# Service de licence (LDS), obligatoire depuis la 10.1 (§6.1).
+# NOM DU PAQUET À VALIDER sur l'installateur 10.1.21 (invite « Install zimbra-… »).
+zimbra_packages:
+  - zimbra-license-daemon
+
+zimbra_setup_extra: {}

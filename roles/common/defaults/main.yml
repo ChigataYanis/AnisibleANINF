@@ -1,0 +1,28 @@
+---
+# Espace libre minimal attendu sur /opt/zimbra au moment de l'installation (Go)
+zimbra_opt_min_free_gb: 40
+
+# Dépendances Ubuntu 24.04 de Zimbra 10.1 et outils utilisés par les rôles.
+# Liste à valider contre la documentation 10.1.21 (libaio1t64 : nom 24.04).
+zimbra_os_packages:
+  - netcat-openbsd
+  - sudo
+  - libidn12
+  - libpcre3
+  - libgmp10
+  - libexpat1
+  - libstdc++6
+  - libaio1t64
+  - unzip
+  - pax
+  - sysstat
+  - sqlite3
+  - perl
+  - expect
+  - rsyslog
+
+# Serveurs de courrier du système qui occuperaient le port 25
+zimbra_conflicting_packages:
+  - postfix
+  - exim4
+  - sendmail

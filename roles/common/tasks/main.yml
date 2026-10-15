@@ -1,0 +1,12 @@
+---
+- name: Contrôles des prérequis livrés par l'ANINF
+  ansible.builtin.import_tasks: preflight.yml
+  tags: [preflight]
+
+- name: Préparation du système
+  ansible.builtin.import_tasks: system.yml
+  tags: [system]
+
+- name: Dépôt de l'installateur Zimbra
+  ansible.builtin.import_tasks: stage.yml
+  tags: [stage]

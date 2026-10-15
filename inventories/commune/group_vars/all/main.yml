@@ -1,0 +1,86 @@
+---
+# =============================================================================
+# Plateforme commune ANINF — variables générales
+# Les points marqués Qn renvoient aux questions de la fiche ANINF (§8).
+# =============================================================================
+
+# Garde-fou : passer à true une fois hosts.yml rempli avec le tableau des
+# machines remis par l'ANINF (adresses réelles).
+aninf_machine_table_received: true   # tableau reçu le 15/10/2026
+
+# --- Connexion ----------------------------------------------------------------
+# Ansible tourne sur msg-imapsync (100.64.35.4), atteinte par Teleport ; les
+# serveurs sont joints en SSH direct dans le VLAN avec le compte aninf (sudo).
+ansible_host: "{{ zimbra_ip }}"
+ansible_user: aninf
+
+zimbra_topology: multi
+
+# --- Version et archive (Q1) -------------------------------------------------
+# Édition Network obligatoire (service de licence LDS). L'archive se télécharge
+# depuis le portail client Zimbra et se dépose dans files/ du projet.
+zimbra_version: "10.1.21"
+zimbra_tarball: "zcs-NETWORK-10.1.21_GA_XXXX.UBUNTU24_64.YYYYMMDD.tgz"
+zimbra_tarball_local_dir: "{{ inventory_dir }}/../../files"
+# Le dépôt de paquets Zimbra demande une ouverture Internet temporaire (§4.5).
+zimbra_use_package_repo: true
+# Décompression sur le disque système, pas sur /opt/zimbra
+zimbra_stage_dir: /var/tmp/zcs
+zimbra_installer_dir: "{{ zimbra_stage_dir }}/{{ zimbra_tarball | regex_replace('\\.tgz$', '') }}"
+
+# --- Noms (Q2) ---------------------------------------------------------------
+zimbra_hosts_domain: "aninf.ga"            # tableau des machines du 15/10/2026
+zimbra_fqdn: "{{ inventory_hostname }}.{{ zimbra_hosts_domain }}"
+# hosts : /etc/hosts commun + livraison LMTP en résolution native
+# dns   : zone DNS interne servie par l'ANINF (proposition ANINF)
+zimbra_name_resolution: hosts
+# Entrées supplémentaires pour /etc/hosts (FortiMail, etc.) : [{ip:, names: []}]
+zimbra_extra_hosts: []
+
+# --- Domaine et administration -----------------------------------------------
+zimbra_default_domain: "aninf.ga"
+zimbra_admin_account: "admin@{{ zimbra_default_domain }}"
+zimbra_admin_password: "{{ vault_zimbra_admin_password }}"
+zimbra_ldap_password: "{{ vault_zimbra_ldap_password }}"
+zimbra_timezone: "Africa/Libreville"
+# Adresse prévenue avant l'expiration de la licence (§6.1)
+zimbra_notification_email: "admin@{{ zimbra_default_domain }}"
+
+# --- Réseau ------------------------------------------------------------------
+zimbra_vlan_cidr: "100.64.35.0/24"
+# Adresses des FortiMail (unités et adresse virtuelle). À fournir par l'ANINF.
+fortimail_ips: []
+# Hôte de relais de tout le courrier sortant (zimbraMtaRelayHost), ex. "[fortimail.aninf.ga]:25"
+fortimail_relay_host: ""
+# Hôtes d'envoi du webmail (zimbraSmtpHostname) : les FortiMail
+fortimail_smtp_hostnames: []
+# Adresse(s) de msg-imapsync, exemptée(s) du filtrage (§7.5)
+imapsync_ips: [100.64.35.4]                # msg-imapsync
+
+# --- Options d'installation (§6.2) -------------------------------------------
+zimbra_onlyoffice: false
+# Journal central : premier serveur de boîtes, ou "" pour l'écarter
+zimbra_logger_host: "{{ groups['zimbra_mailbox'][0] }}"
+zimbra_proxy_mail_mode: "redirect"
+
+# --- Topologie calculée (ne pas modifier) -------------------------------------
+zimbra_ldap_hosts: "{{ groups['zimbra_ldap'] }}"
+zimbra_lds_hosts: "{{ groups['zimbra_lds'] }}"
+zimbra_mta_hosts: "{{ groups['zimbra_mta'] }}"
+zimbra_proxy_hosts: "{{ groups['zimbra_proxy'] }}"
+zimbra_mailbox_hosts: "{{ groups['zimbra_mailbox'] }}"
+zimbra_all_hosts: "{{ groups['zimbra_commune'] }}"
+zimbra_first_ldap: "{{ zimbra_ldap_hosts[0] }}"
+
+# Réseaux de confiance des MTA : VLAN 2035 et FortiMail uniquement (§6.4)
+zimbra_mta_mynetworks: >-
+  127.0.0.0/8 [::1]/128 {{ zimbra_vlan_cidr }}
+  {{ fortimail_ips | map('regex_replace', '$', '/32') | join(' ') }}
+# Envoi du webmail par les FortiMail ; à défaut (non encore fournis) par les MTA
+zimbra_smtp_hosts: >-
+  {{ fortimail_smtp_hostnames if fortimail_smtp_hostnames | length > 0
+     else zimbra_mta_hosts | map('regex_replace', '$', '.' ~ zimbra_hosts_domain) | list }}
+# Adresses exemptées du filtrage par adresse : proxys, FortiMail, imapsync
+zimbra_http_safe_ips: >-
+  {{ (zimbra_proxy_hosts | map('extract', hostvars, 'zimbra_ip') | list)
+     + fortimail_ips + imapsync_ips }}

@@ -1,0 +1,26 @@
+---
+- name: "{{ dom.domain }} : noms virtuels"
+  ansible.builtin.command: >-
+    /opt/zimbra/bin/zmprov md {{ dom.domain }}
+    {% for v in dom.virtual_hostnames %} zimbraVirtualHostName {{ v }}{% endfor %}
+    {% for ip in dom.virtual_ips | default([]) %} zimbraVirtualIPAddress {{ ip }}{% endfor %}
+  become_user: zimbra
+  changed_when: true
+
+- name: "{{ dom.domain }} : fichiers du certificat"
+  ansible.builtin.copy:
+    src: "{{ zimbra_certs_dir }}/{{ item }}"
+    dest: "/var/tmp/zimbra-certs/{{ item }}"
+    owner: zimbra
+    mode: "0600"
+  loop:
+    - "{{ dom.cert }}"
+    - "{{ dom.key }}"
+  no_log: true
+
+- name: "{{ dom.domain }} : enregistrement du certificat"
+  ansible.builtin.command: >-
+    /opt/zimbra/libexec/zmdomaincertmgr savecrt {{ dom.domain }}
+    /var/tmp/zimbra-certs/{{ dom.cert }} /var/tmp/zimbra-certs/{{ dom.key }}
+  become_user: zimbra
+  changed_when: true

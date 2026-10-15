@@ -1,0 +1,23 @@
+---
+# Le service de licence doit être actif avant le premier serveur de boîtes :
+# depuis la 10.1.10, une licence absente ou expirée arrête les services (§6.1).
+
+- name: Activation de la licence
+  ansible.builtin.command: "{{ zimbra_license_activation_command }}"
+  become_user: zimbra
+  when: zimbra_license_activation_command | length > 0
+  no_log: true
+  changed_when: true
+
+- name: Activation manuelle attendue
+  ansible.builtin.pause:
+    prompt: >-
+      Aucune commande d'activation n'est définie (zimbra_license_activation_command).
+      Activer la licence sur {{ inventory_hostname }}, renseigner l'adresse de
+      notification d'expiration ({{ zimbra_notification_email }}), puis valider
+  when: zimbra_license_activation_command | length == 0
+
+- name: Le service de licence écoute sur le port {{ zimbra_lds_port }}
+  ansible.builtin.wait_for:
+    port: "{{ zimbra_lds_port }}"
+    timeout: 120

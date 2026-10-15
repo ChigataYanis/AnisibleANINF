@@ -1,0 +1,11 @@
+---
+# Pas de POP3 (Q4)
+zimbra_disable_pop3: true
+# Compression des messages : seuil en octets (§6.6, défaut Zimbra 4 Ko)
+zimbra_compression_threshold: 4096
+# Services de filtrage retirés des MTA : un seul moteur, le FortiMail (§4.2)
+zimbra_mta_disabled_services:
+  - amavis
+  - antivirus
+  - antispam
+  - opendkim

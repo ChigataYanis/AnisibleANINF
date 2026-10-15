@@ -1,0 +1,17 @@
+---
+# Paquets propres au rôle de la machine (définis dans group_vars/<groupe>.yml)
+zimbra_packages: []
+# Clés zmsetup propres au rôle de la machine
+zimbra_setup_extra: {}
+# Clés zmsetup désignant le service de licence (serveurs de boîtes)
+zimbra_setup_lds: {}
+
+# Délai maximal sans nouvelle invite de l'installateur (secondes). Une invite
+# non prévue arrête l'installation au bout de ce délai, sans répondre au hasard.
+zimbra_install_prompt_timeout: 1800
+# Durée maximale d'une étape d'installation ou de configuration (secondes)
+zimbra_install_max_duration: 7200
+
+# Témoins d'avancement (sur le disque système)
+zimbra_state_dir: /var/lib/zimbra-ansible
+zimbra_install_log: /var/log/zimbra-ansible-install.log

@@ -1,0 +1,23 @@
+---
+# À jouer sur le premier annuaire, juste après son installation et avant celle
+# des deux autres : il devient maître et déclare ses deux pairs (§6.3).
+- name: Témoin de réplication
+  ansible.builtin.stat:
+    path: "{{ zimbra_state_dir | default('/var/lib/zimbra-ansible') }}/mmr-enabled"
+  register: _mmr
+
+- name: Activer la réplication multi-maîtres sur le premier annuaire
+  ansible.builtin.command: >-
+    /opt/zimbra/libexec/zmldapenable-mmr -s {{ ldap_server_id }}
+    -m "{{ _peers | map('regex_replace', '^', 'ldap://') | map('regex_replace', '$', '.' ~ zimbra_hosts_domain ~ ':389/') | join(' ') }}"
+  become_user: zimbra
+  vars:
+    _peers: "{{ zimbra_ldap_hosts | reject('equalto', inventory_hostname) | list }}"
+  when: not _mmr.stat.exists
+  changed_when: true
+
+- name: Témoin de réplication
+  ansible.builtin.copy:
+    dest: "{{ zimbra_state_dir | default('/var/lib/zimbra-ansible') }}/mmr-enabled"
+    content: "ok\n"
+    mode: "0600"

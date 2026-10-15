@@ -1,0 +1,29 @@
+---
+# Compression du volume de messages, avant le premier lot de migration (§6.6).
+# Elle ne s'applique qu'aux messages écrits après son activation.
+- name: Compression des volumes de messages
+  ansible.builtin.shell: |
+    set -euo pipefail
+    ids=$(/opt/zimbra/bin/zmvolume -l | awk '/Volume id:/{id=$3} /type: *primaryMessage/{print id}')
+    [ -n "$ids" ] || { echo "KO aucun volume de messages trouvé"; exit 0; }
+    for id in $ids; do
+      if ! /opt/zimbra/bin/zmvolume -l -id "$id" | grep -q 'compressed: *true'; then
+        /opt/zimbra/bin/zmvolume -e -id "$id" -c true -ct {{ zimbra_compression_threshold }}
+        echo "CHANGED volume $id"
+      fi
+      if /opt/zimbra/bin/zmvolume -l -id "$id" | grep -q 'compressed: *true'; then
+        echo "OK volume $id"
+      else
+        echo "KO volume $id"
+      fi
+    done
+  args:
+    executable: /bin/bash
+  become_user: zimbra
+  register: _vol
+  changed_when: "'CHANGED' in _vol.stdout"
+
+- name: Compression active sur tous les volumes de messages
+  ansible.builtin.assert:
+    that: "'KO ' not in _vol.stdout"
+    fail_msg: "{{ _vol.stdout_lines }}"
