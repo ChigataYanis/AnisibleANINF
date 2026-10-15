@@ -1,20 +1,31 @@
 ---
+# Redémarrage et contrôle exécutés exactement comme à la main (su - zimbra),
+# avec l'environnement de connexion de zimbra. Lancés par root : le suivi
+# asynchrone d'Ansible reste dans /root (et non dans /opt/zimbra, à root).
 - name: Redémarrage des services Zimbra
-  ansible.builtin.command: /opt/zimbra/bin/zmcontrol restart
-  become_user: zimbra
-  # Le répertoire personnel de zimbra (/opt/zimbra) appartient à root : Ansible
-  # ne peut pas y créer .ansible_async. Le suivi asynchrone va dans /tmp.
-  vars:
-    ansible_async_dir: /tmp/.ansible_async_zimbra
+  ansible.builtin.command: su - zimbra -c "/opt/zimbra/bin/zmcontrol restart"
   async: 1800
   poll: 15
   changed_when: true
 
-- name: Tous les services sont démarrés
-  ansible.builtin.command: /opt/zimbra/bin/zmcontrol status
-  become_user: zimbra
+- name: État des services
+  ansible.builtin.command: su - zimbra -c "/opt/zimbra/bin/zmcontrol status"
   register: _status
   changed_when: false
-  retries: 6
+  failed_when: false
+  retries: 9
   delay: 20
   until: _status.rc == 0
+
+- name: État des services de {{ inventory_hostname }}
+  ansible.builtin.debug:
+    var: _status.stdout_lines
+  when: _status.rc != 0
+
+- name: Tous les services sont démarrés
+  ansible.builtin.assert:
+    that: _status.rc == 0
+    fail_msg: >-
+      zmcontrol status renvoie {{ _status.rc }} sur {{ inventory_hostname }}.
+      Services en cause : {{ _status.stdout_lines | select('search', '(?i)stopped|not running') | list }}
+      {{ _status.stderr | default('') }}
