@@ -7,6 +7,9 @@ mc default zimbraPrefTimeZoneId {{ zimbra_timezone }}
 {% if fortimail_relay_host | length > 0 %}
 mcf zimbraMtaRelayHost {{ fortimail_relay_host }}
 {% endif %}
+{% if fortimail_fallback_relay_host | default('') | length > 0 %}
+mcf zimbraMtaFallbackRelayHost {{ fortimail_fallback_relay_host }}
+{% endif %}
 mcf zimbraMtaMyNetworks "{{ zimbra_mta_mynetworks }}"
 mcf zimbraMtaLmtpHostLookup {{ 'native' if zimbra_name_resolution == 'hosts' else 'dns' }}
 {% for m in mtas %}

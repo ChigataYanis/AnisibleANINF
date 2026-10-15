@@ -53,8 +53,13 @@ zimbra_notification_email: "admin@{{ zimbra_default_domain }}"
 zimbra_vlan_cidr: "100.64.35.0/24"
 # Adresses des FortiMail (unités et adresse virtuelle). À fournir par l'ANINF.
 fortimail_ips: []
-# Hôte de relais de tout le courrier sortant (zimbraMtaRelayHost), ex. "[fortimail.aninf.ga]:25"
+# Relais de tout le courrier sortant (zimbraMtaRelayHost). Entre crochets,
+# le MTA n'interroge pas le DNS (pas de recherche MX). Ex. "[100.64.36.10]:25"
+# Avec l'adresse virtuelle de la paire FortiMail, une seule valeur suffit.
 fortimail_relay_host: ""
+# Relais de secours, utilisé si le premier ne répond pas
+# (zimbraMtaFallbackRelayHost). Ex. "[100.64.36.11]:25" ; "" = aucun.
+fortimail_fallback_relay_host: ""
 # Hôtes d'envoi du webmail (zimbraSmtpHostname) : les FortiMail
 fortimail_smtp_hostnames: []
 # Adresse(s) de msg-imapsync, exemptée(s) du filtrage (§7.5)

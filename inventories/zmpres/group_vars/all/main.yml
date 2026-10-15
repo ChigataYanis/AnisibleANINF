@@ -43,6 +43,7 @@ zimbra_notification_email: "admin@{{ zimbra_default_domain }}"
 zimbra_vlan_cidr: "100.64.35.0/24"
 fortimail_ips: []
 fortimail_relay_host: ""
+fortimail_fallback_relay_host: ""
 fortimail_smtp_hostnames: []
 imapsync_ips: [100.64.35.4]                # msg-imapsync
 
