@@ -2,6 +2,10 @@
 - name: Redémarrage des services Zimbra
   ansible.builtin.command: /opt/zimbra/bin/zmcontrol restart
   become_user: zimbra
+  # Le répertoire personnel de zimbra (/opt/zimbra) appartient à root : Ansible
+  # ne peut pas y créer .ansible_async. Le suivi asynchrone va dans /tmp.
+  vars:
+    ansible_async_dir: /tmp/.ansible_async_zimbra
   async: 1800
   poll: 15
   changed_when: true
