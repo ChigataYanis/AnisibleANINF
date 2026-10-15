@@ -57,7 +57,6 @@ Il installe et configure ensuite Zimbra.
 | `finalize` | Clés SSH (`zmupdateauthkeys`), ordre des annuaires différent par serveur (§6.3), zmtrainsa désactivé, syslog |
 | `postconfig` | Réglages §6.4 (détail ci-dessous), puis compression des volumes (§6.6) |
 | `certs` | Certificat principal et certificats par domaine (§4.4) |
-| `branding` | Logos et fond de la page de connexion (images CNPS provisoires, voir plus bas) |
 | `restart` | Redémarrage ordonné, une machine à la fois |
 
 Les réglages de l'étape `postconfig` sont les suivants :
@@ -149,31 +148,6 @@ msg-imapsync est **temporaire** : elle est détruite à la fin de la migration
 (§7.2). Avant, recopier ailleurs le projet, son coffre et `ansible.log`, et
 prévoir un autre poste de lancement pour les exploitations ultérieures.
 
-## Personnalisation (branding)
-
-Les images de l'ANINF n'étant pas encore fournies, le projet utilise
-**provisoirement les images de la CNPS**, copiées dans `files/branding/` :
-
-| Fichier | Usage | Origine CNPS |
-|---|---|---|
-| `AppBanner.png` (125 x 35) | Bandeau de l'application | `MyAppBanner.png` |
-| `LoginBanner.png` (646 x 159) | Logo de la page de connexion | `MyLoginBanner.png` |
-| `LoginBackground.png` (2000 x 1000) | Fond de la page de connexion | `new-back-ground-image.png.png` |
-
-Le rôle `zimbra_branding` copie ces images sur chaque serveur de boîtes. Il
-déclare ensuite les logos sur les domaines de `zimbra_branding_domains`
-(`zimbraSkinLogoAppBanner`, `zimbraSkinLogoLoginBanner`).
-
-Pour passer aux images de l'ANINF, remplacer les trois fichiers sous les
-mêmes noms, puis relancer :
-
-```bash
-ansible-playbook playbooks/site.yml --ask-vault-pass --tags branding
-```
-
-Il faut aussi relancer cette commande après chaque correctif Zimbra, qui peut
-réécrire l'application web.
-
 ## À valider sur une maquette avant la production
 
 Ces points ne sont pas décrits de façon assez précise par la documentation
@@ -187,7 +161,6 @@ pour être figés sans essai. Ils sont isolés dans des variables :
 | Accords de réplication entre LDAP 2 et LDAP 3 : le contrôle `mmr` arrête le déploiement s'il en manque un | `roles/zimbra_ldap_mmr` |
 | Liste des dépendances Ubuntu 24.04 | `roles/common/defaults/main.yml` |
 | Attributs non cités par la documentation (filtre d'échecs de connexion, etc.), à confirmer par VEONE (§6.4) | `postconfig.zmprov.j2` |
-| Prise en compte des logos par l'interface moderne de la 10.1, et attribut du fond de connexion | `roles/zimbra_branding` (`zimbra_branding_background_attribute`) |
 | Compression et `zmdedupe` sous la licence (Q14) | `roles/zimbra_postconfig/tasks/compression.yml` |
 
 ## Questions encore ouvertes qui changent des variables

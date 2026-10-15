@@ -82,11 +82,6 @@
   roles: [zimbra_certs]
   tags: [certs]
 
-- name: Personnalisation du webmail (images CNPS provisoires)
-  hosts: zimbra_mailbox
-  roles: [zimbra_branding]
-  tags: [branding]
-
 - name: Redémarrage ordonné
   ansible.builtin.import_playbook: restart.yml
   tags: [restart]

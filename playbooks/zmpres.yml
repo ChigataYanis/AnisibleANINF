@@ -31,11 +31,6 @@
         name: zimbra_certs
       tags: [certs]
 
-    - name: Personnalisation du webmail (images CNPS provisoires)
-      ansible.builtin.include_role:
-        name: zimbra_branding
-      tags: [branding]
-
     - name: Redémarrage
       ansible.builtin.include_role:
         name: zimbra_finalize
