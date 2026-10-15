@@ -1,0 +1,26 @@
+---
+# Chaque annuaire doit avoir un accord de réplication vers chacun des deux
+# autres. L'installation n'en crée qu'une partie : les accords manquants sont
+# ajoutés ici, comme on le ferait à la main avec zmldapenable-mmr.
+# Identifiants (rid) : 100, 101… dans l'ordre des pairs de l'inventaire, soit
+#   msg-ldap-1 : ldap-2 = 100, ldap-3 = 101
+#   msg-ldap-2 : ldap-1 = 100, ldap-3 = 101
+#   msg-ldap-3 : ldap-1 = 100, ldap-2 = 101
+# Un accord déjà présent n'est jamais recréé.
+
+- name: Accords de réplication existants
+  ansible.builtin.command: /opt/zimbra/libexec/zmldapmmrtool -q
+  become_user: zimbra
+  register: _agreements_before
+  changed_when: false
+
+- name: Ajout des accords manquants
+  ansible.builtin.command: >-
+    /opt/zimbra/libexec/zmldapenable-mmr -r {{ zimbra_ldap_mmr_rid_base + idx }}
+    -m ldap://{{ item }}.{{ zimbra_hosts_domain }}:389/
+  become_user: zimbra
+  loop: "{{ zimbra_ldap_hosts | reject('equalto', inventory_hostname) | list }}"
+  loop_control:
+    index_var: idx
+  when: (item ~ '.' ~ zimbra_hosts_domain) not in _agreements_before.stdout
+  changed_when: true

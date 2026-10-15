@@ -51,7 +51,7 @@ Il installe et configure ensuite Zimbra.
 |---|---|
 | `common` | Contrôles préalables, système, dépôt de l'installateur |
 | `ldap` | LDAP 1 (maître, active la réplication multi-maîtres), puis LDAP 2 et 3 un par un |
-| `mmr` | Contrôle des accords de réplication entre les trois annuaires |
+| `mmr` | Ajout des accords de réplication manquants entre les trois annuaires (`zmldapenable-mmr -r 100/101`), puis contrôle |
 | `lds` | Service de licence, activé **avant** le premier serveur de boîtes |
 | `mta`, `proxy`, `mailbox` | Installation, une machine à la fois |
 | `finalize` | Clés SSH (`zmupdateauthkeys`), ordre des annuaires différent par serveur (§6.3), zmtrainsa désactivé, syslog |
@@ -163,7 +163,7 @@ pour être figés sans essai. Ils sont isolés dans des variables :
 | Nom exact du paquet du service de licence (`zimbra-license-daemon` supposé) | `group_vars/zimbra_lds.yml`, `zmpres/.../main.yml` |
 | Clé(s) `zmsetup` qui désignent le LDS au serveur de boîtes : à relever dans `/opt/zimbra/config.*` après une installation manuelle | `zimbra_setup_lds` |
 | Commande d'activation de la licence (Q12) ; tant qu'elle est vide, le playbook fait une pause pour une activation manuelle | `zimbra_license_activation_command` |
-| Accords de réplication entre LDAP 2 et LDAP 3 : le contrôle `mmr` arrête le déploiement s'il en manque un | `roles/zimbra_ldap_mmr` |
+| Accords de réplication : ajoutés automatiquement (méthode validée à la main le 15/10/2026) ; le contrôle `mmr` arrête le déploiement s'il en manque encore un | `roles/zimbra_ldap_mmr` |
 | Liste des dépendances Ubuntu 24.04 | `roles/common/defaults/main.yml` |
 | Attributs non cités par la documentation (filtre d'échecs de connexion, etc.), à confirmer par VEONE (§6.4) | `postconfig.zmprov.j2` |
 | Compression et `zmdedupe` sous la licence (Q14) | `roles/zimbra_postconfig/tasks/compression.yml` |

@@ -1,3 +1,6 @@
 ---
+- name: Accords de réplication manquants
+  ansible.builtin.import_tasks: agreements.yml
+
 - name: Contrôle de la réplication
   ansible.builtin.import_tasks: verify.yml

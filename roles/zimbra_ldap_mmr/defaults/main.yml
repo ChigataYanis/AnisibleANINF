@@ -1,3 +1,5 @@
 ---
 # Arrêter le déploiement si un annuaire ne réplique pas avec les deux autres
 zimbra_ldap_mmr_strict: true
+# Premier identifiant d'accord de réplication (rid) ; les suivants : +1
+zimbra_ldap_mmr_rid_base: 100
