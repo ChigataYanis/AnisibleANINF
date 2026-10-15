@@ -1,0 +1,5 @@
+---
+# Connexion depuis msg-imapsync, comme le projet d'installation ANINFZimbra10.
+ansible_host: "{{ zimbra_ip | default(inventory_hostname) }}"   # localhost n'a pas de zimbra_ip
+ansible_user: aninf
+ansible_ssh_private_key_file: "~/.ssh/key_ansible_aninf.pem"

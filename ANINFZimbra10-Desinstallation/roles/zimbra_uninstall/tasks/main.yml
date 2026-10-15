@@ -1,0 +1,168 @@
+---
+# Désinstallation complète de Zimbra sur une machine.
+# Ne touche ni aux agents de l'ANINF, ni au système, ni au volume /opt/zimbra
+# lui-même (seul son contenu est vidé).
+
+- name: Confirmation donnée en début de playbook
+  ansible.builtin.assert:
+    that: hostvars['localhost']['_uninstall_confirmed'] | default(false) | bool
+    fail_msg: "Confirmation absente : lancer playbooks/desinstallation.yml en entier."
+
+- name: Volume /opt/zimbra avant désinstallation
+  ansible.builtin.command: findmnt -n -o SOURCE,FSTYPE /opt/zimbra
+  register: _mount_before
+  changed_when: false
+  failed_when: false
+
+# --- 1. Arrêt ------------------------------------------------------------------
+- name: Compte zimbra présent ?
+  ansible.builtin.command: getent passwd zimbra
+  register: _zuser
+  changed_when: false
+  failed_when: false
+
+- name: Zimbra présent ?
+  ansible.builtin.stat:
+    path: /opt/zimbra/bin/zmcontrol
+  register: _zmcontrol
+
+- name: Arrêt des services Zimbra
+  ansible.builtin.command: /opt/zimbra/bin/zmcontrol stop
+  become_user: zimbra
+  when: _zuser.rc == 0 and _zmcontrol.stat.exists
+  async: 900
+  poll: 10
+  failed_when: false
+  changed_when: true
+
+- name: Arrêt des processus restants du compte zimbra
+  ansible.builtin.command: pkill -9 -u zimbra
+  when: _zuser.rc == 0
+  register: _pkill
+  failed_when: _pkill.rc > 1
+  changed_when: _pkill.rc == 0
+
+- name: Tâches planifiées du compte zimbra
+  ansible.builtin.command: crontab -r -u zimbra
+  when: _zuser.rc == 0
+  register: _cron
+  failed_when: false
+  changed_when: _cron.rc == 0
+
+# --- 2. Paquets ----------------------------------------------------------------
+- name: Paquets Zimbra installés
+  ansible.builtin.shell: dpkg-query -W -f='${Package} ${db:Status-Abbrev}\n' 'zimbra-*' 2>/dev/null | awk '$2 ~ /^.[^n]/ {print $1}'
+  register: _pkgs
+  changed_when: false
+  failed_when: false
+
+- name: Retrait des paquets Zimbra
+  when: _pkgs.stdout_lines | length > 0
+  block:
+    - name: apt purge
+      ansible.builtin.apt:
+        name: "{{ _pkgs.stdout_lines }}"
+        state: absent
+        purge: true
+  rescue:
+    # Les scripts de retrait des paquets échouent parfois quand Zimbra est
+    # déjà à moitié supprimé : on force alors le retrait.
+    - name: dpkg --purge forcé
+      ansible.builtin.command: dpkg --purge --force-remove-reinstreq --force-depends {{ _pkgs.stdout_lines | join(' ') }}
+      changed_when: true
+
+- name: Dépôt de paquets Zimbra
+  ansible.builtin.find:
+    paths: [/etc/apt/sources.list.d, /etc/apt/trusted.gpg.d, /etc/apt/keyrings]
+    patterns: ["*zimbra*"]
+  register: _apt_files
+
+- name: Retrait du dépôt de paquets Zimbra
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ _apt_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+
+# --- 3. Données ----------------------------------------------------------------
+- name: Vider /opt/zimbra (le volume reste monté)
+  ansible.builtin.command: find /opt/zimbra -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+  when:
+    - zimbra_uninstall_wipe_opt | bool
+    - _mount_before.rc == 0
+  changed_when: true
+
+- name: /opt/zimbra n'est pas un volume monté
+  ansible.builtin.debug:
+    msg: "/opt/zimbra n'est pas monté sur {{ inventory_hostname }} : son contenu n'a pas été vidé, à vérifier à la main."
+  when: zimbra_uninstall_wipe_opt | bool and _mount_before.rc != 0
+
+# --- 4. Système ----------------------------------------------------------------
+- name: Comptes système de Zimbra
+  ansible.builtin.user:
+    name: "{{ item }}"
+    state: absent
+    remove: false
+  loop: "{{ zimbra_uninstall_users }}"
+
+- name: Groupes système de Zimbra
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ zimbra_uninstall_groups }}"
+
+- name: Fichiers système de Zimbra et témoins Ansible
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ zimbra_uninstall_paths }}"
+
+- name: Installateur décompressé
+  ansible.builtin.file:
+    path: /var/tmp/zcs
+    state: absent
+  when: not zimbra_uninstall_keep_installer | bool
+
+- name: Bloc /etc/hosts de l'installation
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ZIMBRA ANINF (Ansible)"
+    state: absent
+  when: zimbra_uninstall_remove_etc_hosts | bool
+
+# zmsyslogsetup modifie la configuration de rsyslog. On ne la réécrit pas à
+# l'aveugle : les fichiers concernés sont signalés pour contrôle.
+- name: Configuration rsyslog mentionnant Zimbra
+  ansible.builtin.shell: grep -rlis zimbra /etc/rsyslog.conf /etc/rsyslog.d 2>/dev/null || true
+  register: _rsyslog
+  changed_when: false
+
+# --- 5. Contrôles --------------------------------------------------------------
+- name: Plus aucun paquet Zimbra
+  ansible.builtin.shell: dpkg-query -W -f='${Package} ${db:Status-Abbrev}\n' 'zimbra-*' 2>/dev/null | awk '$2 ~ /^.[^n]/ {print $1}'
+  register: _left
+  changed_when: false
+  failed_when: _left.stdout | length > 0
+
+- name: Ports de Zimbra libérés
+  ansible.builtin.wait_for:
+    port: "{{ item }}"
+    state: stopped
+    timeout: 30
+  loop: "{{ zimbra_uninstall_check_ports }}"
+
+- name: Volume /opt/zimbra toujours en place
+  ansible.builtin.command: findmnt -n -o SOURCE,FSTYPE /opt/zimbra
+  register: _mount_after
+  changed_when: false
+  failed_when: _mount_after.stdout != _mount_before.stdout
+  when: _mount_before.rc == 0
+
+- name: Bilan
+  ansible.builtin.debug:
+    msg:
+      - "Zimbra retiré de {{ inventory_hostname }} ({{ zimbra_ip | default(ansible_host) }})."
+      - "Paquets retirés : {{ _pkgs.stdout_lines | join(' ') | default('aucun', true) }}"
+      - "/opt/zimbra : {{ 'vidé, volume conservé' if (zimbra_uninstall_wipe_opt | bool and _mount_before.rc == 0) else 'non vidé' }}"
+      - "rsyslog à contrôler : {{ _rsyslog.stdout_lines | join(', ') | default('rien', true) }}"

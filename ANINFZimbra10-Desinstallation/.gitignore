@@ -1,0 +1,7 @@
+desinstallation.log
+*.retry
+# Clés SSH et privées : jamais dans le dépôt
+*.pem
+*.key
+id_rsa*
+id_ed25519*

@@ -1,0 +1,30 @@
+---
+# Vider le contenu de /opt/zimbra (logiciel, annuaire, base, index, MESSAGES).
+# Le volume livré par l'ANINF n'est jamais démonté ni formaté.
+zimbra_uninstall_wipe_opt: true
+
+# Garder l'installateur décompressé (/var/tmp/zcs) pour réinstaller sans le
+# recopier depuis msg-imapsync.
+zimbra_uninstall_keep_installer: true
+
+# Retirer le bloc /etc/hosts posé par l'installation. Par défaut on le garde :
+# il resservira à une réinstallation.
+zimbra_uninstall_remove_etc_hosts: false
+
+# Comptes et groupes système créés par l'installateur Zimbra
+zimbra_uninstall_users: [zimbra, postfix]
+zimbra_uninstall_groups: [zimbra, postfix, postdrop]
+
+# Fichiers et répertoires système laissés par Zimbra ou par l'installation Ansible
+zimbra_uninstall_paths:
+  - /etc/logrotate.d/zimbra
+  - /etc/sudoers.d/zimbra
+  - /etc/security/limits.d/10-zimbra.conf
+  - /var/log/zimbra.log
+  - /var/log/zimbra-stats.log
+  - /var/log/zimbra-ansible-install.log
+  - /var/lib/zimbra-ansible
+  - /var/spool/cron/crontabs/zimbra
+
+# Ports qui doivent être libres une fois Zimbra retiré
+zimbra_uninstall_check_ports: [25, 80, 143, 389, 443, 993, 7071, 8081]
