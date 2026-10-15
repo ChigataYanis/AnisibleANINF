@@ -5,3 +5,8 @@ files/certs/*
 !files/certs/.gitkeep
 # Le coffre chiffré peut être versionné ; jamais un coffre en clair.
 inventories/*/group_vars/all/vault.yml.clair
+# Clés SSH et privées : jamais dans le dépôt
+*.pem
+*.key
+id_rsa*
+id_ed25519*

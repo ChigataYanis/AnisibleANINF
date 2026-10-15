@@ -102,9 +102,14 @@ leur adresse dans le VLAN 2035, avec le compte `aninf` et `sudo`
    ```
    Copier le projet dans le répertoire de `aninf` (par exemple
    `~/ANINFZimbra10`) et lancer toutes les commandes depuis sa racine.
-2. **Accès SSH de msg-imapsync vers les serveurs.** Créer une clé pour
-   `aninf` (`ssh-keygen -t ed25519`) et faire autoriser sa clé publique par
-   l'ANINF sur les 17 serveurs, puis tester :
+2. **Clé SSH du compte `aninf`.** Déposer la clé fournie,
+   `key_ansible_aninf.pem`, dans `~/.ssh/` sur msg-imapsync, avec les
+   droits `600`. Les inventaires la désignent par
+   `ansible_ssh_private_key_file`. Elle ne doit **jamais** être copiée dans le
+   projet : `.gitignore` exclut `*.pem` et `*.key`. Tester ensuite l'accès :
+   ```bash
+   chmod 600 ~/.ssh/key_ansible_aninf.pem
+   ```
    ```bash
    ansible all -m ping
    ```
