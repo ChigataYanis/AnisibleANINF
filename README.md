@@ -1,7 +1,7 @@
-# Messagerie gouvernementale ANINF — Zimbra 10.1 sur Ubuntu 24.04
+# Messagerie Zimbra 10.1 multi-serveurs sur Ubuntu 24.04
 
-Déploiement Ansible par VEONE de la plateforme décrite dans la fiche
-*FICHE-synthese-veone-messagerie-zimbra10-v1* (ANINF, 8 octobre 2026).
+Déploiement Ansible de la plateforme décrite dans la fiche de synthèse
+d'architecture du client (8 octobre 2026).
 Les renvois « §n » et « Qn » désignent les sections et questions de cette fiche.
 
 ## Périmètre
@@ -13,16 +13,16 @@ Les renvois « §n » et « Qn » désignent les sections et questions de cette 
 
 Ce projet couvre **uniquement l'installation et la configuration de Zimbra**.
 La migration des courriers (msg-imapsync, §7) est un projet séparé
-(`../ANINFMigration`). Seule l'exemption de l'adresse de msg-imapsync dans
+(dépôt distinct). Seule l'exemption de l'adresse de msg-imapsync dans
 Zimbra (`imapsync_ips`, §7.5) reste ici, car elle se règle sur la plateforme.
 
-État au 15/10/2026 : les accès aux environnements ANINF ne sont pas encore
-remis. Rien n'a été exécuté sur une machine réelle ; seules la syntaxe et le
-rendu des modèles ont été vérifiés.
+État au 16/10/2026 : la plateforme commune est déployée avec ce projet ;
+l'instance tout-en-un msg-zmpres est en cours (échec à l'initialisation LDAP,
+cause en analyse).
 
-## Ce que l'ANINF livre et ce que le projet fait
+## Ce que l'hébergeur livre et ce que le projet fait
 
-L'ANINF livre les VM prêtes (§3.4). Le projet **contrôle** ces prérequis sans
+L'hébergeur livre les VM prêtes (§3.4). Le projet **contrôle** ces prérequis sans
 les modifier et s'arrête s'il en manque un :
 
 - Ubuntu 24.04 ;
@@ -31,7 +31,7 @@ les modifier et s'arrête s'il en manque un :
 - `/opt/zimbra` monté en XFS, sur LVM ;
 - l'adresse déclarée est bien portée par la VM.
 
-Le projet ne touche ni aux agents de l'ANINF, ni aux disques (aucun
+Le projet ne touche ni aux agents de l'hébergeur, ni aux disques (aucun
 partitionnement), ni au DNS du système.
 
 Il **modifie** :
@@ -78,7 +78,7 @@ réinstallée.
 Les invites de `install.sh -s` reçoivent leurs réponses par un script
 `expect`. Chaque invite « Install zimbra-xxx » reçoit « y » si le paquet est
 dans la liste de la machine, « n » sinon. Cela ne dépend donc pas de l'ordre
-des questions, contrairement aux fichiers `y/n` du projet CNPS.
+des questions, contrairement aux fichiers `y/n` du projet précédent (Zimbra 9).
 
 Une invite non prévue arrête l'installation au bout du délai défini, sans
 répondre au hasard. Le journal se trouve dans `/var/log/zimbra-ansible-install.log`.
@@ -90,25 +90,25 @@ contient les mots de passe : il est supprimé dès la fin de l'étape.
 
 Ansible est lancé **depuis msg-imapsync** (100.64.35.4), où l'on se connecte
 par Teleport. De là, les serveurs Zimbra sont joints directement en SSH par
-leur adresse dans le VLAN 2035, avec le compte `aninf` et `sudo`
+leur adresse dans le VLAN 2035, avec le compte d'administration (`ansible_user`) et `sudo`
 (`ansible_host` = `zimbra_ip`, voir `group_vars/all/main.yml`).
 
 1. **Préparer msg-imapsync** (une fois) :
    ```bash
-   tsh ssh aninf@msg-imapsync
+   tsh ssh <compte>@msg-imapsync
    ```
    ```bash
    sudo apt install -y ansible-core tmux
    ```
-   Copier le projet dans le répertoire de `aninf` (par exemple
-   `~/ANINFZimbra10`) et lancer toutes les commandes depuis sa racine.
-2. **Clé SSH du compte `aninf`.** Déposer la clé fournie,
-   `key_ansible_aninf.pem`, dans `~/.ssh/` sur msg-imapsync, avec les
+   Copier le projet dans le répertoire de ce compte (par exemple
+   `~/zimbra10`) et lancer toutes les commandes depuis sa racine.
+2. **Clé SSH du compte d'administration.** Déposer la clé fournie
+   (`ansible_ssh_private_key_file`) dans `~/.ssh/` sur msg-imapsync, avec les
    droits `600`. Les inventaires la désignent par
    `ansible_ssh_private_key_file`. Elle ne doit **jamais** être copiée dans le
    projet : `.gitignore` exclut `*.pem` et `*.key`. Tester ensuite l'accès :
    ```bash
-   chmod 600 ~/.ssh/key_ansible_aninf.pem
+   chmod 600 ~/.ssh/<cle>.pem
    ```
    ```bash
    ansible all -m ping
@@ -122,8 +122,8 @@ leur adresse dans le VLAN 2035, avec le compte `aninf` et `sudo`
    - `zimbra_default_domain` ;
    - les adresses des FortiMail.
 
-   Les adresses des serveurs, `zimbra_hosts_domain` (`aninf.ga`) et
-   `imapsync_ips` sont déjà reportés depuis le tableau de l'ANINF du 15/10/2026.
+   Les adresses des serveurs, `zimbra_hosts_domain` (domaine des hôtes) et
+   `imapsync_ips` sont déjà reportés depuis le tableau des machines du 15/10/2026.
 4. **Coffre.** Créer et chiffrer le coffre :
    ```bash
    cp inventories/commune/group_vars/all/vault.yml.example inventories/commune/group_vars/all/vault.yml
@@ -146,7 +146,7 @@ leur adresse dans le VLAN 2035, avec le compte `aninf` et `sudo`
    ansible-playbook -i inventories/zmpres/hosts.yml playbooks/zmpres.yml --ask-vault-pass
    ```
 
-L'installation utilise le dépôt de paquets Zimbra : demander à l'ANINF
+L'installation utilise le dépôt de paquets Zimbra : demander à l'hébergeur
 l'ouverture Internet temporaire (§4.5) avant les étapes d'installation.
 
 msg-imapsync est **temporaire** : elle est détruite à la fin de la migration
@@ -165,7 +165,7 @@ pour être figés sans essai. Ils sont isolés dans des variables :
 | Commande d'activation de la licence (Q12) ; tant qu'elle est vide, le playbook fait une pause pour une activation manuelle | `zimbra_license_activation_command` |
 | Accords de réplication : ajoutés automatiquement (méthode validée à la main le 15/10/2026) ; le contrôle `mmr` arrête le déploiement s'il en manque encore un | `roles/zimbra_ldap_mmr` |
 | Liste des dépendances Ubuntu 24.04 | `roles/common/defaults/main.yml` |
-| Attributs non cités par la documentation (filtre d'échecs de connexion, etc.), à confirmer par VEONE (§6.4) | `postconfig.zmprov.j2` |
+| Attributs non cités par la documentation (filtre d'échecs de connexion, etc.), à confirmer par l'intégrateur (§6.4) | `postconfig.zmprov.j2` |
 | Compression et `zmdedupe` sous la licence (Q14) | `roles/zimbra_postconfig/tasks/compression.yml` |
 
 ## Questions encore ouvertes qui changent des variables
@@ -177,14 +177,14 @@ pour être figés sans essai. Ils sont isolés dans des variables :
 - **Q10** : VLAN de msg-zmpres.
 - **Q12** : mode d'activation de la licence et seconde licence pour msg-zmpres.
 
-## Différences avec le projet CNPS
+## Différences avec le projet précédent (Zimbra 9)
 
-| | CNPS | ANINF |
+| | Projet précédent | Ce projet |
 |---|---|---|
 | OS et version | RHEL 8 (`dnf`), Zimbra 9.0 | Ubuntu 24.04 (`apt`), Zimbra 10.1 |
 | Organisation du code | Un fichier de tâches par machine | Des rôles génériques par fonction, avec `group_vars` |
-| Disques | Formatage de `/dev/sdb` | Aucune opération sur les disques (`/opt/zimbra` livré par l'ANINF) |
-| Accès | Clé root | Compte `aninf` et `sudo`, lancé depuis msg-imapsync (atteinte par Teleport) |
+| Disques | Formatage de `/dev/sdb` | Aucune opération sur les disques (`/opt/zimbra` livré par l'hébergeur) |
+| Accès | Clé root | Compte d'administration et `sudo`, lancé depuis msg-imapsync (atteinte par Teleport) |
 | Secrets | Mots de passe en clair dans `defaults/main.yml` | `ansible-vault` |
 | Inclusions | `include:` (retiré d'ansible-core 2.16) | `import_tasks` / `include_role` |
 | zmtrainsa | `zmtrainsa_cleanup_host=TRUE` | Désactivé, comme l'exige la fiche (§6.4) |
